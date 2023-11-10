@@ -1,4 +1,4 @@
-module stash.corp.netflix.com/cldmta/clickhouse-agent-lib
+module stash.corp.netflix.com/cldmta/clickhouse-agent-libs
 
 go 1.21.3
 
