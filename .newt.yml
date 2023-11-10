@@ -1,0 +1,28 @@
+apptype: docker-image
+
+jenkins-master: opseng
+jenkins-default-job: INSIGHT-clickhouse-agent-lib
+team-email: telemetry-engineering@netflix.com
+org: cldmta
+
+image-name: dockerregistry.test.netflix.net:7002/engtools/newt-common-builder
+
+tool-versions:
+  go: 1.21.3
+
+command-configs:
+  build:
+    build-image: dockerregistry.test.netflix.net:7002/engtools/newt-go-builder:latest
+    enable-build-volumes: true
+    build-step:
+      - make
+
+commands:
+  - name: build
+    id: build-in-docker
+
+enable-build-volumes: true
+build-cache-key: clickhouse-agent
+params:
+  GOCACHE: /storage/go
+  GOMODCACHE: /storage/go/mod

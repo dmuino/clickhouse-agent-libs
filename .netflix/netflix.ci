@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# See http://manuals.test.netflix.net/view/rocket/mkdocs/master/user-guide/environment/ for available
+# Rocket environment variables
+
+set -ex
+
+newt build
+

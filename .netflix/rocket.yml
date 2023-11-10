@@ -1,0 +1,15 @@
+# See http://manuals.test.netflix.net/view/rocket/mkdocs/master/user-guide/ci-properties/ for
+# definitions of properties used
+
+scm:
+  checkout:
+    prBuildMerge: true
+notifications:
+  email:
+  - to:
+    - dmuino@netflix.com
+    conditions:
+    - failure
+    - aborted
+jenkins:
+  label: os.name:linux && nf.app:jenkins

@@ -1,0 +1,16 @@
+[http "https://stash.prod.netflix.net:7006"]
+    sslCert = ~/.metatron/user.crt
+    sslKey = ~/.metatron/user.key
+    sslVerify = true
+
+[url "https://stash.prod.netflix.net:7006/scm"]
+    insteadOf = ssh://git@stash.corp.netflix.com:7999
+
+[url "https://stash.prod.netflix.net:7006"]
+    insteadOf = https://stash.corp.netflix.com
+
+[url "https://stash.prod.netflix.net:7006"]
+    insteadOf = https://stash.corp.netflix.com:7006
+
+[url "https://stash.prod.netflix.net:7006"]
+    insteadOf = https://stash.corp.netflix.com:7004
