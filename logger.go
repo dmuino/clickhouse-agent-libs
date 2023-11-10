@@ -27,6 +27,10 @@ type Logger struct {
 // global logger
 var logger = NewLogger(DEBUG)
 
+func GetLogger() *Logger {
+	return logger
+}
+
 func createSocket() (conn net.Conn, err error) {
 	delay := 250 * time.Millisecond
 	for attempt := 1; attempt < 5; attempt++ {
