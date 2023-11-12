@@ -10,11 +10,10 @@ import (
 func Uptime() time.Duration {
 	bootTime, err := host.BootTime()
 	logger.CheckErr(err)
-
-	uptime, err := host.Uptime()
-	logger.CheckErr(err)
-
-	return time.Duration(uptime - bootTime)
+	now := time.Now().Unix()
+	elapsed := time.Duration(now-int64(bootTime)) * time.Second
+	logger.Infof("Uptime: %s", elapsed)
+	return elapsed
 }
 
 func TimeRunning(processName string) int {

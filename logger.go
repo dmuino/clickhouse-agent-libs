@@ -51,7 +51,7 @@ func createSocket() (conn net.Conn, err error) {
 func NewLogger(level Level) *Logger {
 	var socket net.Conn
 	var err error
-	if !isLocalEnv() {
+	if !IsLocalEnvironment() {
 		socket, err = createSocket()
 	}
 
