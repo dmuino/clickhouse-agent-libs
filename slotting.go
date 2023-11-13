@@ -35,10 +35,19 @@ type AsgInfo struct {
 	Instances       []InstanceInfo `json:"instances"`
 }
 
-func GetAllNodes(env *NetflixEnv) []InstanceInfo {
+func GetSlot(env *NetflixEnv) int {
+	asgInfo := getAsgInfo(env, env.Asg)
+	for _, instance := range asgInfo.Instances {
+		if instance.InstanceId == env.InstanceId {
+			return instance.Slot
+		}
+	}
+	return -1
+}
+
+func getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
 	baseUrl := getBaseUrl(env)
-	myAsg := env.Asg
-	url := fmt.Sprintf("%s/api/v1/autoScalingGroups/%s", baseUrl, myAsg)
+	url := fmt.Sprintf("%s/api/v1/autoScalingGroups/%s", baseUrl, asg)
 	logger.Infof("Getting all nodes from our ASG using url: %s", url)
 
 	// make http get request to get all nodes in our ASG from the slotting service
@@ -53,6 +62,12 @@ func GetAllNodes(env *NetflixEnv) []InstanceInfo {
 	var asgInfo AsgInfo
 	err = json.Unmarshal(body, &asgInfo)
 	logger.CheckErr(err)
+
+	return asgInfo
+}
+
+func GetAllNodes(env *NetflixEnv) []InstanceInfo {
+	asgInfo := getAsgInfo(env, env.Asg)
 
 	// return the list of instanceIds
 	var instances []InstanceInfo

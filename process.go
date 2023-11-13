@@ -12,7 +12,6 @@ func Uptime() time.Duration {
 	logger.CheckErr(err)
 	now := time.Now().Unix()
 	elapsed := time.Duration(now-int64(bootTime)) * time.Second
-	logger.Infof("Uptime: %s", elapsed)
 	return elapsed
 }
 

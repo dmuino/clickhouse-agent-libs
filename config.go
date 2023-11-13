@@ -1,6 +1,7 @@
 package chagent
 
 import (
+	"bytes"
 	"os"
 	"text/template"
 )
@@ -21,4 +22,12 @@ func GenerateConfig(tpl *template.Template, outputName string, config interface{
 	logger.CheckErr(err)
 	err = os.Rename(tmpName, outputName)
 	logger.CheckErr(err)
+}
+
+func ExpandTemplate(tpl *template.Template, data interface{}) string {
+	var output []byte
+	writer := bytes.NewBuffer(output)
+	err := tpl.Execute(writer, data)
+	logger.CheckErr(err)
+	return writer.String()
 }
