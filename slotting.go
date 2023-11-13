@@ -36,13 +36,22 @@ type AsgInfo struct {
 }
 
 func GetSlot(env *NetflixEnv) int {
-	asgInfo := getAsgInfo(env, env.Asg)
-	for _, instance := range asgInfo.Instances {
-		if instance.InstanceId == env.InstanceId {
-			return instance.Slot
+	// cache slot
+	slot := -1
+
+	getAsgInfoFromSlotting := func() int {
+		if slot != -1 {
+			asgInfo := getAsgInfo(env, env.Asg)
+			for _, instance := range asgInfo.Instances {
+				if instance.InstanceId == env.InstanceId {
+					slot = instance.Slot
+					return slot
+				}
+			}
 		}
+		return slot
 	}
-	return -1
+	return getAsgInfoFromSlotting()
 }
 
 func getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
