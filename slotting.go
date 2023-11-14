@@ -40,7 +40,9 @@ func GetSlot(env *NetflixEnv) int {
 	slot := -1
 
 	getAsgInfoFromSlotting := func() int {
-		if slot != -1 {
+		const maxRetries = 10
+		retry := 0
+		for slot == -1 && retry < maxRetries {
 			asgInfo := getAsgInfo(env, env.Asg)
 			for _, instance := range asgInfo.Instances {
 				if instance.InstanceId == env.InstanceId {
@@ -48,6 +50,9 @@ func GetSlot(env *NetflixEnv) int {
 					return slot
 				}
 			}
+			retry++
+			logger.Infof("Unable to find our slot. Retrying %d/%d", retry, maxRetries)
+			time.Sleep(5 * time.Second)
 		}
 		return slot
 	}
