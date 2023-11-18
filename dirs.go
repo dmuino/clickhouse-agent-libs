@@ -39,8 +39,8 @@ func SetupDirs(serviceName string) {
 	err = os.Chown("/data/clickhouse", clickhouseUid, clickhouseGid)
 	logger.CheckErr(err)
 
-	// Create a symbolic link from /logs/clickhouse-server to /var/log/clickhouse-server
-	if err := os.Symlink("/logs/clickhouse-server", "/var/log/clickhouse-server"); err != nil {
+	// Create a symbolic link from /logs/$service_name to /var/log/$service_name
+	if err := os.Symlink(finalLogDir, origLogDir); err != nil {
 		logger.Fatalf("Error creating symbolic link: %v", err)
 	}
 
