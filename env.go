@@ -5,8 +5,9 @@ import "os"
 type NetflixEnv struct {
 	Account     string
 	AccountType string
+	Environment string
 	Region      string
-	Stack string
+	Stack       string
 	Asg         string
 	InstanceId  string
 }
@@ -18,6 +19,7 @@ func NewNetflixEnv() *NetflixEnv {
 		return &NetflixEnv{
 			Account:     "ieptest",
 			AccountType: "iep",
+			Environment: "test",
 			Region:      "us-east-1",
 			Stack:       "dev",
 			Asg:         "clickhousekeeper-newdev-v001",
@@ -31,6 +33,7 @@ func NewNetflixEnv() *NetflixEnv {
 		return &NetflixEnv{
 			Account:     os.Getenv("NETFLIX_ACCOUNT"),
 			AccountType: os.Getenv("NETFLIX_ACCOUNT_TYPE"),
+			Environment: os.Getenv("NETFLIX_ENVIRONMENT"),
 			Region:      os.Getenv("NETFLIX_REGION"),
 			Stack:       stack,
 			Asg:         os.Getenv("NETFLIX_AUTO_SCALE_GROUP"),
