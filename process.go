@@ -26,7 +26,8 @@ func TimeRunning(processName string) int {
 		}
 		p, err := process.NewProcess(pid)
 		if err != nil {
-			logger.Fatalf("Error getting process: %v", err)
+			logger.Warningf("Error getting process: %v", err)
+			continue
 		}
 		name, err := p.Name()
 		if err != nil {
@@ -39,7 +40,8 @@ func TimeRunning(processName string) int {
 			logger.Debugf("Found process %s with pid %d", name, pid)
 			t, err := p.CreateTime()
 			if err != nil {
-				logger.Fatalf("Error getting process start time: %v", err)
+				logger.Errorf("Error getting process start time: %v", err)
+				continue
 			}
 			t /= 1000
 			return int(time.Now().Unix() - t)
