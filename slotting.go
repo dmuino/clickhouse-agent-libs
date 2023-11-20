@@ -35,28 +35,34 @@ type AsgInfo struct {
 	Instances       []InstanceInfo `json:"instances"`
 }
 
-func GetSlot(env *NetflixEnv) int {
-	// cache slot
-	slot := -1
+type SlotInfo struct {
+	Slot int `json:"slot"`
+	env  *NetflixEnv
+}
 
-	getAsgInfoFromSlotting := func() int {
+func NewSlotInfo(env *NetflixEnv) *SlotInfo {
+	return &SlotInfo{Slot: -1, env: env}
+
+}
+
+func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
+	if s.Slot != -1 {
 		const maxRetries = 10
 		retry := 0
-		for slot == -1 && retry < maxRetries {
+		for s.Slot == -1 && retry < maxRetries {
 			asgInfo := getAsgInfo(env, env.Asg)
 			for _, instance := range asgInfo.Instances {
 				if instance.InstanceId == env.InstanceId {
-					slot = instance.Slot
-					return slot
+					s.Slot = instance.Slot
+					return s.Slot
 				}
 			}
 			retry++
 			logger.Infof("Unable to find our slot. Retrying %d/%d", retry, maxRetries)
 			time.Sleep(5 * time.Second)
 		}
-		return slot
 	}
-	return getAsgInfoFromSlotting()
+	return s.Slot
 }
 
 func getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
@@ -80,8 +86,8 @@ func getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
 	return asgInfo
 }
 
-func GetAllNodes(env *NetflixEnv) []InstanceInfo {
-	asgInfo := getAsgInfo(env, env.Asg)
+func (s *SlotInfo) GetAllNodes() []InstanceInfo {
+	asgInfo := getAsgInfo(s.env, s.env.Asg)
 
 	// return the list of instanceIds
 	var instances []InstanceInfo
@@ -104,14 +110,14 @@ func instanceIdInList(instanceId string, nodes []InstanceInfo) bool {
 	return false
 }
 
-func GetAllNodesWithRetries(env *NetflixEnv) []InstanceInfo {
+func (s *SlotInfo) GetAllNodesWithRetries() []InstanceInfo {
 	const sleepTime = 30
 	const maxRetries = 15
 
 	retry := 0
 	for {
-		nodes := GetAllNodes(env)
-		if len(nodes) > 0 && instanceIdInList(env.InstanceId, nodes) {
+		nodes := s.GetAllNodes()
+		if len(nodes) > 0 && instanceIdInList(s.env.InstanceId, nodes) {
 			return nodes
 		}
 		if retry < maxRetries {
@@ -119,7 +125,7 @@ func GetAllNodesWithRetries(env *NetflixEnv) []InstanceInfo {
 			logger.Infof("Waiting until the slotting service assigns a slot to this node. Retrying in %d seconds", sleepTime)
 			time.Sleep(sleepTime * time.Second)
 		} else {
-			logger.Fatalf("Could not find my instanceId: %s in the list of nodes: %v", env.InstanceId, nodes)
+			logger.Fatalf("Could not find my instanceId: %s in the list of nodes: %v", s.env.InstanceId, nodes)
 		}
 	}
 }

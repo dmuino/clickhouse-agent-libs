@@ -48,6 +48,10 @@ func createSocket() (conn net.Conn, err error) {
 	return
 }
 
+func isTerminal() bool {
+	return isatty.IsTerminal(os.Stderr.Fd())
+}
+
 func NewLogger(level Level) *Logger {
 	var socket net.Conn
 	var err error
@@ -60,7 +64,7 @@ func NewLogger(level Level) *Logger {
 		socket = nil
 	}
 	return &Logger{level: level,
-		colorizer: NewColorizer(isatty.IsTerminal(os.Stderr.Fd())), socket: socket}
+		colorizer: NewColorizer(isTerminal()), socket: socket}
 }
 
 type LogPayload struct {
@@ -89,41 +93,45 @@ func (l *Logger) SetLevel(level Level) {
 	l.level = level
 }
 
+func (l *Logger) log(format string, tag string, colorFun func(string, string) string, args ...interface{}) string {
+	userMsg := fmt.Sprintf(format, args...)
+
+	taggedMsg := fmt.Sprintf("%s %s", tag, userMsg)
+	msg := colorFun(taggedMsg, ColorsReset)
+	// add a timestamp if writing to the terminal, otherwise assume it's provided by the platform
+	// like journald
+	dateTime := ""
+	if isTerminal() {
+		dateTime = fmt.Sprintf("%s ", time.Now().Format("2006-01-02T15:04:05.000"))
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "%s%s\n", dateTime, msg)
+	return userMsg
+}
+
 func (l *Logger) Debugf(format string, args ...interface{}) {
 	if l.level >= DEBUG {
-		formattedMsg := fmt.Sprintf(format, args...)
-		msg := l.colorizer.Cyan(formattedMsg, ColorsReset)
-		_, _ = fmt.Fprintf(os.Stderr, "%s\n", msg)
-		l.sendToCollector("debug", formattedMsg)
+		userMsg := l.log(format, "", l.colorizer.Cyan, args...)
+		l.sendToCollector("debug", userMsg)
 	}
 }
 
 func (l *Logger) Infof(format string, args ...interface{}) {
 	if l.level >= INFO {
-		userMsg := fmt.Sprintf(format, args...)
-		infoMsg := fmt.Sprintf("%s %s", ColorsCheck, userMsg)
-		msg := l.colorizer.Green(infoMsg, ColorsReset)
-		_, _ = fmt.Fprintf(os.Stderr, "%s\n", msg)
+		userMsg := l.log(format, ColorsCheck, l.colorizer.Green, args...)
 		l.sendToCollector("info", userMsg)
 	}
 }
 
 func (l *Logger) Warningf(format string, args ...interface{}) {
 	if l.level >= WARNING {
-		userMsg := fmt.Sprintf(format, args...)
-		taggedMsg := fmt.Sprintf("[!] %s", userMsg)
-		msg := l.colorizer.Yellow(taggedMsg, ColorsReset)
-		_, _ = fmt.Fprintf(os.Stderr, "%s\n", msg)
+		userMsg := l.log(format, "[!]", l.colorizer.Yellow, args...)
 		l.sendToCollector("warning", userMsg)
 	}
 }
 
 func (l *Logger) Errorf(format string, args ...interface{}) {
 	if l.level >= ERROR {
-		userMsg := fmt.Sprintf(format, args...)
-		taggedMsg := fmt.Sprintf("%s %s", ColorsCross, userMsg)
-		msg := l.colorizer.Red(taggedMsg, ColorsReset)
-		_, _ = fmt.Fprintf(os.Stderr, "%s\n", msg)
+		userMsg := l.log(format, ColorsCross, l.colorizer.Red, args...)
 		l.sendToCollector("error", userMsg)
 	}
 }
