@@ -7,6 +7,13 @@ import (
 	"strconv"
 )
 
+func clickhouseDir(dir string, clickhouseUid, clickhouseGid int) {
+	err := os.MkdirAll(dir, os.ModePerm)
+	logger.CheckErr(err)
+	err = os.Chown(dir, clickhouseUid, clickhouseGid)
+	logger.CheckErr(err)
+}
+
 func SetupDirs(serviceName string) {
 	// Get the user clickhouse which will own the directories
 	clickhouseUser, err := user.Lookup("clickhouse")
@@ -32,50 +39,31 @@ func SetupDirs(serviceName string) {
 	if err := os.RemoveAll(varLibDir); err != nil {
 		logger.Fatalf("Error removing %s: %v", varLibDir, err)
 	}
+	clickhouseDir(varLibDir, clickhouseUid, clickhouseGid)
+
 	dataDir := fmt.Sprintf("/data/%s", serviceName)
-	if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
-		logger.Fatalf("Error creating %s directory: %v", dataDir, err)
-	}
+	clickhouseDir(dataDir, clickhouseUid, clickhouseGid)
 	// Create a symbolic link from /data/$serviceName to /var/lib/$serviceName
 	if err := os.Symlink(dataDir, varLibDir); err != nil {
 		logger.Fatalf("Error creating symbolic link: %v", err)
 	}
-	err = os.Chown(dataDir, clickhouseUid, clickhouseGid)
-	logger.CheckErr(err)
 
-	if err := os.RemoveAll("/var/lib/clickhouse"); err != nil {
-		logger.Fatalf("Error removing /var/lib/clickhouse: %v", err)
-	}
-
-	finalLogDir := fmt.Sprintf("/logs/%s", serviceName)
-	err = os.MkdirAll(finalLogDir, os.ModePerm)
-	logger.CheckErr(err)
-
-	err = os.MkdirAll("/run/"+serviceName, os.ModePerm)
-	logger.CheckErr(err)
-	err = os.Chown(finalLogDir, clickhouseUid, clickhouseGid)
-	logger.CheckErr(err)
-	err = os.Chown("/run/"+serviceName, clickhouseUid, clickhouseGid)
-	logger.CheckErr(err)
-	err = os.MkdirAll("/data/clickhouse", os.ModePerm)
-	logger.CheckErr(err)
-	err = os.Chown("/data/clickhouse", clickhouseUid, clickhouseGid)
-	logger.CheckErr(err)
+	clickhouseDir(fmt.Sprintf("/logs/%s", serviceName), clickhouseUid, clickhouseGid)
+	clickhouseDir("/run/"+serviceName, clickhouseUid, clickhouseGid)
+	clickhouseDir("/data/clickhouse", clickhouseUid, clickhouseGid)
 
 	// Create a symbolic link from /logs/$service_name to /var/log/$service_name
-	if err := os.Symlink(finalLogDir, origLogDir); err != nil {
+	if err := os.Symlink(fmt.Sprintf("/logs/%s", serviceName), origLogDir); err != nil {
 		logger.Fatalf("Error creating symbolic link: %v", err)
 	}
 
 	const origDataDir = "/var/lib/clickhouse"
 	_ = os.RemoveAll(origDataDir)
 	const finalDataDir = "/data/clickhouse"
-	if err := os.MkdirAll(finalDataDir, os.ModePerm); err != nil {
-		logger.Fatalf("Error creating %s directory: %v", finalDataDir, err)
-	}
+	clickhouseDir(finalDataDir, clickhouseUid, clickhouseGid)
 
 	// Create a symbolic link from /data/clickhouse to /var/lib/clickhouse
-	if err := os.Symlink("/data/clickhouse", "/var/lib/clickhouse"); err != nil {
+	if err := os.Symlink(finalDataDir, "/var/lib/clickhouse"); err != nil {
 		logger.Fatalf("Error creating symbolic link: %v", err)
 	}
 
