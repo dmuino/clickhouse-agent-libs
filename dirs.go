@@ -39,7 +39,6 @@ func SetupDirs(serviceName string) {
 	if err := os.RemoveAll(varLibDir); err != nil {
 		logger.Fatalf("Error removing %s: %v", varLibDir, err)
 	}
-	clickhouseDir(varLibDir, clickhouseUid, clickhouseGid)
 
 	dataDir := fmt.Sprintf("/data/%s", serviceName)
 	clickhouseDir(dataDir, clickhouseUid, clickhouseGid)
