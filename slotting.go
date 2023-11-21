@@ -46,10 +46,14 @@ func NewSlotInfo(env *NetflixEnv) *SlotInfo {
 }
 
 func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
-	if s.Slot != -1 {
+	if s.Slot == -1 {
 		const maxRetries = 10
-		retry := 0
-		for s.Slot == -1 && retry < maxRetries {
+		for retry := 0; s.Slot == -1 && retry < maxRetries; retry++ {
+			if retry > 0 {
+				secondsToSleep := time.Duration(max(5*retry, 30)) * time.Second
+				logger.Infof("Sleeping %v before retrying to get slot. Attempt %d of %d", secondsToSleep, retry, maxRetries)
+				time.Sleep(secondsToSleep)
+			}
 			asgInfo := getAsgInfo(env, env.Asg)
 			for _, instance := range asgInfo.Instances {
 				if instance.InstanceId == env.InstanceId {
@@ -57,9 +61,6 @@ func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
 					return s.Slot
 				}
 			}
-			retry++
-			logger.Infof("Unable to find our slot. Retrying %d/%d", retry, maxRetries)
-			time.Sleep(5 * time.Second)
 		}
 	}
 	return s.Slot
