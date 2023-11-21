@@ -18,16 +18,22 @@ const (
 	DEBUG
 )
 
+var socketForOtel net.Conn
+
 type Logger struct {
+	name      string
 	level     Level
 	colorizer *Colorizer
-	socket    net.Conn
 }
 
-// global logger
-var logger = NewLogger(DEBUG)
+var loggerMap = make(map[string]*Logger)
 
-func GetLogger() *Logger {
+func GetLogger(name string) *Logger {
+	if logger, ok := loggerMap[name]; ok {
+		return logger
+	}
+	logger := NewLogger(name, INFO)
+	loggerMap[name] = logger
 	return logger
 }
 
@@ -52,19 +58,18 @@ func isTerminal() bool {
 	return isatty.IsTerminal(os.Stderr.Fd())
 }
 
-func NewLogger(level Level) *Logger {
-	var socket net.Conn
+func NewLogger(name string, level Level) *Logger {
 	var err error
-	if !IsLocalEnvironment() {
-		socket, err = createSocket()
+	if !IsLocalEnvironment() && socketForOtel == nil {
+		socketForOtel, err = createSocket()
 	}
 
 	if err != nil {
 		fmt.Println("Error connecting to the server:", err)
-		socket = nil
+		socketForOtel = nil
 	}
 	return &Logger{level: level,
-		colorizer: NewColorizer(isTerminal()), socket: socket}
+		colorizer: NewColorizer(isTerminal()), name: name}
 }
 
 type LogPayload struct {
@@ -75,17 +80,17 @@ type LogPayload struct {
 }
 
 func (l *Logger) sendToCollector(level string, msg string) {
-	if l.socket == nil {
+	if socketForOtel == nil {
 		return
 	}
 
-	payload := LogPayload{Message: msg, Level: level, Logger: "agent", Logts: time.Now().UnixNano()}
-	encoder := json.NewEncoder(l.socket)
+	payload := LogPayload{Message: msg, Level: level, Logger: l.name, Logts: time.Now().UnixNano()}
+	encoder := json.NewEncoder(socketForOtel)
 	err := encoder.Encode(payload)
 	if err != nil {
 		fmt.Printf("Error encoding payload. Reconnecting: %v\n", err)
-		_ = l.socket.Close()
-		l.socket, _ = createSocket()
+		_ = socketForOtel.Close()
+		socketForOtel, _ = createSocket()
 	}
 }
 
@@ -104,7 +109,7 @@ func (l *Logger) log(format string, tag string, colorFun func(string, string) st
 	if isTerminal() {
 		dateTime = fmt.Sprintf("%s ", time.Now().Format("2006-01-02T15:04:05.000"))
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "%s%s\n", dateTime, msg)
+	_, _ = fmt.Fprintf(os.Stderr, "%s%-20s %s\n", dateTime, l.name, msg)
 	return userMsg
 }
 

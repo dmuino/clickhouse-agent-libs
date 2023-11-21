@@ -25,6 +25,7 @@ func ReadableSize(size uint64) string {
 }
 
 func GetFreeDiskSpace(path string) uint64 {
+	logger := GetLogger("GetFreeDiskSpace")
 	usage, err := disk.Usage(path)
 	logger.CheckErr(err)
 	logger.Infof("Free disk space on %s: %s", path, ReadableSize(usage.Free))

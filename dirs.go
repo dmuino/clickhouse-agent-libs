@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-func clickhouseDir(dir string, clickhouseUid, clickhouseGid int) {
+func clickhouseDir(logger *Logger, dir string, clickhouseUid, clickhouseGid int) {
 	err := os.MkdirAll(dir, os.ModePerm)
 	logger.CheckErr(err)
 	err = os.Chown(dir, clickhouseUid, clickhouseGid)
@@ -15,6 +15,7 @@ func clickhouseDir(dir string, clickhouseUid, clickhouseGid int) {
 }
 
 func SetupDirs(serviceName string) {
+	logger := GetLogger("SetupDirs")
 	// Get the user clickhouse which will own the directories
 	clickhouseUser, err := user.Lookup("clickhouse")
 	if err != nil {
@@ -41,15 +42,15 @@ func SetupDirs(serviceName string) {
 	}
 
 	dataDir := fmt.Sprintf("/data/%s", serviceName)
-	clickhouseDir(dataDir, clickhouseUid, clickhouseGid)
+	clickhouseDir(logger, dataDir, clickhouseUid, clickhouseGid)
 	// Create a symbolic link from /data/$serviceName to /var/lib/$serviceName
 	if err := os.Symlink(dataDir, varLibDir); err != nil {
 		logger.Fatalf("Error creating symbolic link: %v", err)
 	}
 
-	clickhouseDir(fmt.Sprintf("/logs/%s", serviceName), clickhouseUid, clickhouseGid)
-	clickhouseDir("/run/"+serviceName, clickhouseUid, clickhouseGid)
-	clickhouseDir("/data/clickhouse", clickhouseUid, clickhouseGid)
+	clickhouseDir(logger, fmt.Sprintf("/logs/%s", serviceName), clickhouseUid, clickhouseGid)
+	clickhouseDir(logger, "/run/"+serviceName, clickhouseUid, clickhouseGid)
+	clickhouseDir(logger, "/data/clickhouse", clickhouseUid, clickhouseGid)
 
 	// Create a symbolic link from /logs/$service_name to /var/log/$service_name
 	if err := os.Symlink(fmt.Sprintf("/logs/%s", serviceName), origLogDir); err != nil {
@@ -59,7 +60,7 @@ func SetupDirs(serviceName string) {
 	const origDataDir = "/var/lib/clickhouse"
 	_ = os.RemoveAll(origDataDir)
 	const finalDataDir = "/data/clickhouse"
-	clickhouseDir(finalDataDir, clickhouseUid, clickhouseGid)
+	clickhouseDir(logger, finalDataDir, clickhouseUid, clickhouseGid)
 
 	// Create a symbolic link from /data/clickhouse to /var/lib/clickhouse
 	if err := os.Symlink(finalDataDir, "/var/lib/clickhouse"); err != nil {

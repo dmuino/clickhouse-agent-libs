@@ -36,13 +36,13 @@ type AsgInfo struct {
 }
 
 type SlotInfo struct {
-	Slot int `json:"slot"`
-	env  *NetflixEnv
+	Slot   int `json:"slot"`
+	env    *NetflixEnv
+	logger *Logger
 }
 
 func NewSlotInfo(env *NetflixEnv) *SlotInfo {
-	return &SlotInfo{Slot: -1, env: env}
-
+	return &SlotInfo{Slot: -1, env: env, logger: GetLogger("Slotting")}
 }
 
 func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
@@ -51,10 +51,10 @@ func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
 		for retry := 0; s.Slot == -1 && retry < maxRetries; retry++ {
 			if retry > 0 {
 				secondsToSleep := time.Duration(max(5*retry, 30)) * time.Second
-				logger.Infof("Sleeping %v before retrying to get slot. Attempt %d of %d", secondsToSleep, retry, maxRetries)
+				s.logger.Infof("Sleeping %v before retrying to get slot. Attempt %d of %d", secondsToSleep, retry, maxRetries)
 				time.Sleep(secondsToSleep)
 			}
-			asgInfo := getAsgInfo(env, env.Asg)
+			asgInfo := s.getAsgInfo(env, env.Asg)
 			for _, instance := range asgInfo.Instances {
 				if instance.InstanceId == env.InstanceId {
 					s.Slot = instance.Slot
@@ -66,29 +66,29 @@ func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
 	return s.Slot
 }
 
-func getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
+func (s *SlotInfo) getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
 	baseUrl := getBaseUrl(env)
 	url := fmt.Sprintf("%s/api/v1/autoScalingGroups/%s", baseUrl, asg)
-	logger.Infof("Getting all nodes from our ASG using url: %s", url)
+	s.logger.Infof("Getting all nodes from our ASG using url: %s", url)
 
 	// make http get request to get all nodes in our ASG from the slotting service
 	// and return the list of nodes
 	resp, err := http.Get(url)
-	logger.CheckErr(err)
+	s.logger.CheckErr(err)
 
 	body, err := io.ReadAll(resp.Body)
-	logger.CheckErr(err)
+	s.logger.CheckErr(err)
 
 	// parse body as AsgInfo
 	var asgInfo AsgInfo
 	err = json.Unmarshal(body, &asgInfo)
-	logger.CheckErr(err)
+	s.logger.CheckErr(err)
 
 	return asgInfo
 }
 
 func (s *SlotInfo) GetAllNodes() []InstanceInfo {
-	asgInfo := getAsgInfo(s.env, s.env.Asg)
+	asgInfo := s.getAsgInfo(s.env, s.env.Asg)
 
 	// return the list of instanceIds
 	var instances []InstanceInfo
@@ -96,7 +96,7 @@ func (s *SlotInfo) GetAllNodes() []InstanceInfo {
 		if instance.LifecycleState == "InService" || instance.LifecycleState == "Pending" {
 			instances = append(instances, instance)
 		} else {
-			logger.Debugf("Skipping instance %s with lifecycleState %s", instance.InstanceId, instance.LifecycleState)
+			s.logger.Debugf("Skipping instance %s with lifecycleState %s", instance.InstanceId, instance.LifecycleState)
 		}
 	}
 	return instances
@@ -123,10 +123,10 @@ func (s *SlotInfo) GetAllNodesWithRetries() []InstanceInfo {
 		}
 		if retry < maxRetries {
 			retry++
-			logger.Infof("Waiting until the slotting service assigns a slot to this node. Retrying in %d seconds", sleepTime)
+			s.logger.Infof("Waiting until the slotting service assigns a slot to this node. Retrying in %d seconds", sleepTime)
 			time.Sleep(sleepTime * time.Second)
 		} else {
-			logger.Fatalf("Could not find my instanceId: %s in the list of nodes: %v", s.env.InstanceId, nodes)
+			s.logger.Fatalf("Could not find my instanceId: %s in the list of nodes: %v", s.env.InstanceId, nodes)
 		}
 	}
 }

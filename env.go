@@ -14,7 +14,7 @@ type NetflixEnv struct {
 
 func NewNetflixEnv() *NetflixEnv {
 	if IsLocalEnvironment() {
-		logger.Infof(
+		GetLogger("NetflixEnv").Infof(
 			"Creating local environment since we did not find the NETFLIX_INSTANCE_ID environment variable")
 		return &NetflixEnv{
 			Account:     "ieptest",

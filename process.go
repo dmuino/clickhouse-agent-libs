@@ -8,6 +8,7 @@ import (
 )
 
 func Uptime() time.Duration {
+	logger := GetLogger("Uptime")
 	bootTime, err := host.BootTime()
 	logger.CheckErr(err)
 	now := time.Now().Unix()
@@ -16,6 +17,7 @@ func Uptime() time.Duration {
 }
 
 func TimeRunning(processName string) int {
+	logger := GetLogger("TimeRunning")
 	pids, err := process.Pids()
 	if err != nil {
 		logger.Fatalf("Error getting pids: %v", err)
