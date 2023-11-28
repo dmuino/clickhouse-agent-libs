@@ -109,7 +109,7 @@ func (l *Logger) log(format string, tag string, colorFun func(string, string) st
 	if isTerminal() {
 		dateTime = fmt.Sprintf("%s ", time.Now().Format("2006-01-02T15:04:05.000"))
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "%s%-20s %s\n", dateTime, l.name, msg)
+	_, _ = fmt.Fprintf(os.Stderr, "%s%-12s %s\n", dateTime, l.name, msg)
 	return userMsg
 }
 
