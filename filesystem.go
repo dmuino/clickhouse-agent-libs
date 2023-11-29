@@ -31,3 +31,11 @@ func GetFreeDiskSpace(path string) uint64 {
 	logger.Infof("Free disk space on %s: %s", path, ReadableSize(usage.Free))
 	return usage.Free
 }
+
+func GetFilesystemSize(path string) uint64 {
+	logger := GetLogger("GetFilesystemSize")
+	usage, err := disk.Usage(path)
+	logger.CheckErr(err)
+	logger.Infof("Filesystem size on %s: %s", path, ReadableSize(usage.Total))
+	return usage.Total
+}
