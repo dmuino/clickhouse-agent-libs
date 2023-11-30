@@ -69,7 +69,7 @@ func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
 func (s *SlotInfo) getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
 	baseUrl := getBaseUrl(env)
 	url := fmt.Sprintf("%s/api/v1/autoScalingGroups/%s", baseUrl, asg)
-	s.logger.Infof("Getting all nodes from our ASG using url: %s", url)
+	s.logger.Infof("Getting all nodes for asg={} using url: %s", asg, url)
 
 	// make http get request to get all nodes in our ASG from the slotting service
 	// and return the list of nodes
@@ -100,6 +100,63 @@ func (s *SlotInfo) GetAllNodes() []InstanceInfo {
 		}
 	}
 	return instances
+}
+
+// this is used for DNS purposes, so we want to return even instances that are out of service
+// or in the previous ASG
+func (s *SlotInfo) getAllNodesInCluster(env *NetflixEnv, cluster string) []InstanceInfo {
+	baseUrl := getBaseUrl(env)
+	url := fmt.Sprintf("%s/api/v1/clusters/%s?verbose=true", baseUrl, cluster)
+	s.logger.Infof("Getting all nodes from cluster using url: %s", url)
+	// make http get request to get all nodes in our ASG from the slotting service
+	// and return the list of nodes
+	resp, err := http.Get(url)
+	if err != nil {
+		s.logger.Errorf("Error getting all nodes from cluster: %v", err)
+		return []InstanceInfo{}
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.logger.Errorf("Error getting all nodes from cluster: %v", err)
+		return []InstanceInfo{}
+	}
+
+	// parse body as []AsgInfo
+	var asgsCluster []AsgInfo
+	err = json.Unmarshal(body, &asgsCluster)
+	if err != nil {
+		s.logger.Errorf("Error parsing output from slotting getting all nodes from cluster: %v", err)
+		return []InstanceInfo{}
+	}
+
+	var instances []InstanceInfo
+	for _, asg := range asgsCluster {
+		// append all instances in asg to instances
+		instances = append(instances, asg.Instances...)
+	}
+	return instances
+}
+
+func (s *SlotInfo) GetAllNodesInCluster(env *NetflixEnv, cluster string) []InstanceInfo {
+	const sleepTime = 30
+	const maxRetries = 15
+
+	retry := 0
+	for {
+		nodes := s.getAllNodesInCluster(env, cluster)
+		if len(nodes) > 0 && instanceIdInList(s.env.InstanceId, nodes) {
+			return nodes
+		}
+		if retry < maxRetries {
+			retry++
+			s.logger.Infof("Waiting until the slotting service assigns a slot to this node. Retrying in %d seconds", sleepTime)
+			time.Sleep(sleepTime * time.Second)
+		} else {
+			s.logger.Errorf("Could not find my instanceId: %s in the list of nodes: %v", s.env.InstanceId, nodes)
+			return nodes
+		}
+	}
 }
 
 func instanceIdInList(instanceId string, nodes []InstanceInfo) bool {
