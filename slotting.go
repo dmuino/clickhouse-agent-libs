@@ -45,6 +45,10 @@ func NewSlotInfo(env *NetflixEnv) *SlotInfo {
 	return &SlotInfo{Slot: -1, env: env, logger: GetLogger("Slotting")}
 }
 
+func (s *SlotInfo) SetLevel(level Level) {
+	s.logger.level = level
+}
+
 func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
 	if s.Slot == -1 {
 		const maxRetries = 10
@@ -69,7 +73,7 @@ func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
 func (s *SlotInfo) getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
 	baseUrl := getBaseUrl(env)
 	url := fmt.Sprintf("%s/api/v1/autoScalingGroups/%s", baseUrl, asg)
-	s.logger.Infof("Getting all nodes for asg={} using url: %s", asg, url)
+	s.logger.Debugf("Getting all nodes for asg={} using url: %s", asg, url)
 
 	// make http get request to get all nodes in our ASG from the slotting service
 	// and return the list of nodes
@@ -107,7 +111,7 @@ func (s *SlotInfo) GetAllNodes() []InstanceInfo {
 func (s *SlotInfo) getAllNodesInCluster(env *NetflixEnv, cluster string) []InstanceInfo {
 	baseUrl := getBaseUrl(env)
 	url := fmt.Sprintf("%s/api/v1/clusters/%s?verbose=true", baseUrl, cluster)
-	s.logger.Infof("Getting all nodes from cluster using url: %s", url)
+	s.logger.Debugf("Getting all nodes from cluster using url: %s", url)
 	// make http get request to get all nodes in our ASG from the slotting service
 	// and return the list of nodes
 	resp, err := http.Get(url)
