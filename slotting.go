@@ -36,38 +36,20 @@ type AsgInfo struct {
 }
 
 type SlotInfo struct {
-	Slot   int `json:"slot"`
-	env    *NetflixEnv
-	logger *Logger
+	instanceInfo InstanceInfo
+	env          *NetflixEnv
+	logger       *Logger
 }
 
 func NewSlotInfo(env *NetflixEnv) *SlotInfo {
-	return &SlotInfo{Slot: -1, env: env, logger: GetLogger("Slotting")}
+	instanceInfo := InstanceInfo{
+		Slot: -1,
+	}
+	return &SlotInfo{instanceInfo: instanceInfo, env: env, logger: GetLogger("Slotting")}
 }
 
 func (s *SlotInfo) SetLevel(level Level) {
 	s.logger.level = level
-}
-
-func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
-	if s.Slot == -1 {
-		const maxRetries = 10
-		for retry := 0; s.Slot == -1 && retry < maxRetries; retry++ {
-			if retry > 0 {
-				secondsToSleep := time.Duration(max(5*retry, 30)) * time.Second
-				s.logger.Infof("Sleeping %v before retrying to get slot. Attempt %d of %d", secondsToSleep, retry, maxRetries)
-				time.Sleep(secondsToSleep)
-			}
-			asgInfo := s.getAsgInfo(env, env.Asg)
-			for _, instance := range asgInfo.Instances {
-				if instance.InstanceId == env.InstanceId {
-					s.Slot = instance.Slot
-					return s.Slot
-				}
-			}
-		}
-	}
-	return s.Slot
 }
 
 func (s *SlotInfo) getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
@@ -89,6 +71,35 @@ func (s *SlotInfo) getAsgInfo(env *NetflixEnv, asg string) AsgInfo {
 	s.logger.CheckErr(err)
 
 	return asgInfo
+}
+
+func (s *SlotInfo) slot() int {
+	return s.instanceInfo.Slot
+}
+
+func (s *SlotInfo) GetMyInfo(env *NetflixEnv) InstanceInfo {
+	if s.slot() == -1 {
+		const maxRetries = 10
+		for retry := 0; s.slot() == -1 && retry < maxRetries; retry++ {
+			if retry > 0 {
+				secondsToSleep := time.Duration(max(5*retry, 30)) * time.Second
+				s.logger.Infof("Sleeping %v before retrying to get slot. Attempt %d of %d", secondsToSleep, retry, maxRetries)
+				time.Sleep(secondsToSleep)
+			}
+			asgInfo := s.getAsgInfo(env, env.Asg)
+			for _, instance := range asgInfo.Instances {
+				if instance.InstanceId == env.InstanceId {
+					s.instanceInfo = instance
+					return s.instanceInfo
+				}
+			}
+		}
+	}
+	return s.instanceInfo
+}
+
+func (s *SlotInfo) GetSlot(env *NetflixEnv) int {
+	return s.GetMyInfo(env).Slot
 }
 
 func (s *SlotInfo) GetAllNodes() []InstanceInfo {
