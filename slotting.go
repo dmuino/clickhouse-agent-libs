@@ -37,6 +37,7 @@ type AsgInfo struct {
 
 type SlotInfo struct {
 	instanceInfo InstanceInfo
+	asgName      string
 	env          *NetflixEnv
 	logger       *Logger
 }
@@ -117,24 +118,22 @@ func (s *SlotInfo) GetAllNodes() []InstanceInfo {
 	return instances
 }
 
-// this is used for DNS purposes, so we want to return even instances that are out of service
-// or in the previous ASG
-func (s *SlotInfo) getAllNodesInCluster(env *NetflixEnv, cluster string) []InstanceInfo {
+func (s *SlotInfo) getAllAsgsInCluster(env *NetflixEnv, cluster string) []AsgInfo {
 	baseUrl := getBaseUrl(env)
 	url := fmt.Sprintf("%s/api/v1/clusters/%s?verbose=true", baseUrl, cluster)
-	s.logger.Debugf("Getting all nodes from cluster using url: %s", url)
+	s.logger.Debugf("Getting all asgs from cluster using url: %s", url)
 	// make http get request to get all nodes in our ASG from the slotting service
 	// and return the list of nodes
 	resp, err := http.Get(url)
 	if err != nil {
 		s.logger.Errorf("Error getting all nodes from cluster: %v", err)
-		return []InstanceInfo{}
+		return []AsgInfo{}
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		s.logger.Errorf("Error getting all nodes from cluster: %v", err)
-		return []InstanceInfo{}
+		return []AsgInfo{}
 	}
 
 	// parse body as []AsgInfo
@@ -142,8 +141,36 @@ func (s *SlotInfo) getAllNodesInCluster(env *NetflixEnv, cluster string) []Insta
 	err = json.Unmarshal(body, &asgsCluster)
 	if err != nil {
 		s.logger.Errorf("Error parsing output from slotting getting all nodes from cluster: %v", err)
-		return []InstanceInfo{}
+		return []AsgInfo{}
 	}
+
+	return asgsCluster
+}
+
+func (s *SlotInfo) GetAllAsgsInCluster(env *NetflixEnv, cluster string) []AsgInfo {
+	const sleepTime = 30
+	const maxRetries = 15
+
+	retry := 0
+	for {
+		asgs := s.getAllAsgsInCluster(env, cluster)
+		if len(asgs) > 0 {
+			return asgs
+		}
+		if retry < maxRetries {
+			retry++
+			s.logger.Infof("Waiting until the slotting service updates the list of ASGs for our cluster. Retrying in %d seconds", sleepTime)
+			time.Sleep(sleepTime * time.Second)
+		} else {
+			s.logger.Fatalf("Could not find any ASGs in cluster %s", cluster)
+		}
+	}
+}
+
+// this is used for DNS purposes, so we want to return even instances that are out of service
+// or in the previous ASG
+func (s *SlotInfo) getAllNodesInCluster(env *NetflixEnv, cluster string) []InstanceInfo {
+	asgsCluster := s.getAllAsgsInCluster(env, cluster)
 
 	var instances []InstanceInfo
 	for _, asg := range asgsCluster {
