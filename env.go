@@ -25,7 +25,7 @@ func NewNetflixEnv() *NetflixEnv {
 			Stack:       "dev",
 			Cluster:     "clickhousekeeper-newdev",
 			Asg:         "clickhousekeeper-newdev-v001",
-			InstanceId:  "i-09380206b9f126aa3",
+			InstanceId:  "i-localhost",
 		}
 	} else {
 		stack := os.Getenv("NETFLIX_STACK")

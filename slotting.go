@@ -37,7 +37,6 @@ type AsgInfo struct {
 
 type SlotInfo struct {
 	instanceInfo InstanceInfo
-	asgName      string
 	env          *NetflixEnv
 	logger       *Logger
 }
@@ -202,6 +201,11 @@ func (s *SlotInfo) GetAllNodesInCluster(env *NetflixEnv, cluster string) []Insta
 }
 
 func instanceIdInList(instanceId string, nodes []InstanceInfo) bool {
+	// if running in local mode (i.e. while developing) just return true
+	if instanceId == "i-localhost" {
+		return true
+	}
+
 	for _, node := range nodes {
 		if node.InstanceId == instanceId {
 			return true
