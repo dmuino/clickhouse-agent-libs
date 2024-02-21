@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -83,6 +84,41 @@ func SendOutputFromCommand(logger *Logger, command []string, w http.ResponseWrit
 
 func tailOutputFromCommandFmt(logger *Logger, command []string, w http.ResponseWriter, r *http.Request,
 	formatter func(*Logger, string, string) string) {
+	// if the request include a ?g parameter, we will use that as a regex to grep the output
+	grep := r.URL.Query().Get("g")
+	caseInsensitive := r.URL.Query().Get("i")
+	if caseInsensitive != "" {
+		grep = "(?i)" + grep
+	}
+	// compile the grep regex
+	var regex *regexp.Regexp
+	if grep != "" {
+		re, err := regexp.Compile(grep)
+		if err != nil {
+			logger.Errorf("Error compiling grep regex %s: %v", grep, err)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, err)))
+			return
+		}
+		regex = re
+	}
+
+
+	// if the request include a ?l parameter, we will use that as a limit to the number of lines to return
+	limit := r.URL.Query().Get("l")
+	const MaxLinesToSend = 1000 * 1000
+	maxLinesToSend := MaxLinesToSend
+	if limit != "" {
+		var err error
+		maxLinesToSend, err = strconv.Atoi(limit)
+		if err != nil {
+			logger.Errorf("Error parsing limit %s: %v", limit, err)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"%v"}`, err)))
+			return
+		}
+	}
+
 	logger.Infof("Running command %v - will send output to %s", command, r.RemoteAddr)
 	cmd := exec.Command(command[0], command[1:]...)
 
@@ -105,14 +141,24 @@ func tailOutputFromCommandFmt(logger *Logger, command []string, w http.ResponseW
 	stdoutChan := make(chan string)
 	stderrChan := make(chan string)
 
+	numLinesSent := 0
 	toChannel := func(ch chan string, reader io.ReadCloser) {
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
+			if regex != nil && !regex.MatchString(scanner.Text()) {
+				continue
+			}
+			numLinesSent++
 			ch <- scanner.Text()
+			if numLinesSent >= maxLinesToSend {
+				logger.Infof("Reached limit of %d lines - stopping command %v", maxLinesToSend, command)
+				break
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			logger.Errorf("Error reading stdout from command %v: %v", command, err)
 		}
+		close(ch)
 	}
 	go toChannel(stdoutChan, stdout)
 	go toChannel(stderrChan, stderr)
@@ -142,6 +188,11 @@ func tailOutputFromCommandFmt(logger *Logger, command []string, w http.ResponseW
 
 	// read from stdout and stderr channels and write to the response
 	handleOutput := func(line string, color string) bool {
+		if line == "" {
+			killAndRelease(cmd, r.RemoteAddr, nil)
+			return true
+		}
+
 		htmlLine := formatter(logger, line, color)
 		_, err = w.Write([]byte(htmlLine))
 		if err != nil {
