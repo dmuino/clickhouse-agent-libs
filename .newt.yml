@@ -1,4 +1,5 @@
 apptype: docker-image
+name: clickhouse-agent-libs
 
 jenkins-master: opseng
 jenkins-default-job: INSIGHT-clickhouse-agent-libs
